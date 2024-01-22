@@ -57,12 +57,12 @@ def make_docker(name: str):
     time.sleep(20)  # Let the docker container startup
     return docker_process
 
-def gen(cats: List[str], styles: List[str], base_output_dir: str = "/home/oop/dev/data/", num_images_per_cat: int = 1):
+def gen(cats: List[str], styles: List[str], base_output_dir: str = "/home/oop/dev/data/"):
     session_id = str(uuid.uuid4())[:6]
-    output_dir = os.path.join(base_output_dir, session_id)
+    output_dir = os.path.join(base_output_dir, f"sdxlimgnet.{session_id}")
     os.makedirs(output_dir, exist_ok=True)
-    docker_process = make_docker("sdxl")
-    for cat in enumerate(cats):
+    # docker_process = make_docker("sdxl")
+    for cat in cats:
         cat_dir = os.path.join(output_dir, cat)
         os.makedirs(cat_dir, exist_ok=True)
         for style in styles:
@@ -71,41 +71,38 @@ def gen(cats: List[str], styles: List[str], base_output_dir: str = "/home/oop/de
                 headers={"Content-Type": "application/json"},
                 json={
                     "input": {
-                        "width": 224,
-                        "height": 224,
+                        "width": 768,
+                        "height": 768,
                         "prompt": f"{cat} in the style of {style}",
                         "refine": "expert_ensemble_refiner",
                         "scheduler": "K_EULER",
                         "lora_scale": 0.6,
-                        "num_outputs": 1,
+                        "num_outputs": 4,
                         "guidance_scale": 7.5,
                         "apply_watermark": False,
                         "high_noise_frac": 0.8,
                         "negative_prompt": "",
-                        "prompt_strength": 0.8,
-                        "num_inference_steps": 25,
+                        "prompt_strength": 1.0, # 0.8,
+                        "num_inference_steps": 8, # 25,
+                        "disable_safety_checker": True,
                     }
                 },
             )
-            img = Image.open(
-                BytesIO(base64.b64decode(response.json()["output"].split(",")[1]))
-            )
-            img.save(os.path.join(cat_dir, f"{style}.png"))
-    docker_process.terminate()
-    nuke_docker()
+            print(response.json())
+            for j in range(4):
+                img = Image.open(BytesIO(base64.b64decode(response.json()["output"][j].split(",")[1])))
+                img = img.resize((224, 224))
+                img.save(os.path.join(cat_dir, f"{style}.{j}.jpg"))
+    # docker_process.terminate()
+    # nuke_docker()
 
 
 if __name__ == "__main__":
-    cats = [
-        "penguin",
-        "dog",
-        "plane",
-        "car",
-    ]
+    from imagenet_cats import IMAGENET_CLASSES
     styles = [
         "realistic photograph",
         "cartoon image",
         "high definition 3d render",
-        "grainy early internet image", 
+        "grainy early internet image",
     ]
-    gen(cats, styles)
+    gen(list(IMAGENET_CLASSES.values()), styles)
