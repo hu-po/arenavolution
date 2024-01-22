@@ -36,3 +36,9 @@ https://github.com/eric-mitchell/direct-preference-optimization?tab=readme-ov-fi
 
 Mistral implementation by Mistral team
 https://github.com/mistralai/mistral-src
+
+### Hostile mamba takeover
+
+docker pull nvcr.io/nvidia/jax:23.10-py3
+docker run --gpus all -it --rm -v /tmp:/tmp nvcr.io/nvidia/jax:23.10-py3
+
