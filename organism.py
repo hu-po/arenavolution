@@ -5,9 +5,12 @@
 import os
 import yaml
 from typing import List
+import subprocess
+import time
 from dataclasses import dataclass
 
 from gpt import make_variant, make_organism_name
+from utils import clean_docker
 
 ORGANISM_DIR: str = os.environ.get("ORG_DIR", "/home/oop/dev/data/")
 HPARAMS_FILENAME: str = "hparams.yaml"
@@ -21,7 +24,7 @@ class Organism:
     losses: int
 
 
-def load_organism(name: str) -> Organism:
+def load_organism_from_dir(name: str) -> Organism:
     org_dir = os.path.join(ORGANISM_DIR, name)
     assert os.path.isdir(org_dir), f"Organism {name} not found"
     hparams_filepath = os.path.join(org_dir, HPARAMS_FILENAME)
@@ -60,3 +63,22 @@ def reproduce(organisms: List[Organism], num_children: int = 5) -> List[Organism
         )
         children.append(child)
     return children
+
+
+def spawn(organism: Organism):
+    clean_docker()
+    docker_process = subprocess.Popen(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-p 5555:5555",
+            "--gpus 0",
+            "-v ${CKPT_PATH}:/ckpt",
+            "-v ${LOGS_PATH}:/logs",
+            "imagenet_pytorch",
+        ]
+    )
+    # Check to see if docker process dies due to model error
+    # lots of error checking, return tuple with failure boolean
+    return docker_process

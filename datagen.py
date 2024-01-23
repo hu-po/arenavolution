@@ -39,20 +39,12 @@ from typing import List
 import requests
 from PIL import Image
 
+from utils import clean_docker
 
-def nuke_docker():
-    containers = os.popen("docker ps -aq").read().strip()
-    if containers:
-        os.system(f"docker kill {containers}")
-        os.system(f"docker stop {containers}")
-        os.system(f"docker rm {containers}")
-    os.system("docker container prune -f")
-
-
-def make_docker(name: str):
-    nuke_docker()
+def docker_sdxl():
+    clean_docker()
     docker_process = subprocess.Popen(
-        ["docker", "run", "--rm", "-p", "5000:5000", "--gpus=all", name]
+        ["docker", "run", "--rm", "-p", "5000:5000", "--gpus=all", "sdxl"]
     )
     time.sleep(20)  # Let the docker container startup
     return docker_process
@@ -61,7 +53,7 @@ def gen(cats: List[str], styles: List[str], base_output_dir: str = "/home/oop/de
     session_id = str(uuid.uuid4())[:6]
     output_dir = os.path.join(base_output_dir, f"sdxlimgnet.{session_id}")
     os.makedirs(output_dir, exist_ok=True)
-    # docker_process = make_docker("sdxl")
+    # docker_process = docker_sdxl()
     for cat in cats:
         cat_dir = os.path.join(output_dir, cat)
         os.makedirs(cat_dir, exist_ok=True)
@@ -94,7 +86,7 @@ def gen(cats: List[str], styles: List[str], base_output_dir: str = "/home/oop/de
                 img = img.resize((224, 224))
                 img.save(os.path.join(cat_dir, f"{style}.{j}.jpg"))
     # docker_process.terminate()
-    # nuke_docker()
+    # clean_docker()
 
 
 if __name__ == "__main__":
