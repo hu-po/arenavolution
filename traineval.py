@@ -6,8 +6,8 @@ from torchvision import transforms
 from torchvision.datasets import ImageNet
 from torch.utils.data import DataLoader
 
-num_epochs = 10
-batch_size = 32
+num_epochs = 1
+batch_size = 2
 learning_rate = 0.001
 
 # Define a simple convolutional network
@@ -36,9 +36,9 @@ preprocess = transforms.Compose([
 ])
 
 # Load the ImageNet dataset
-train_dataset = ImageNet(root='path/to/imagenet_root/', split='train', transform=preprocess)
-val_dataset = ImageNet(root='path/to/imagenet_root/', split='val', transform=preprocess)
-test_dataset = ImageNet(root='path/to/imagenet_root/', split='test', transform=preprocess)
+train_dataset = ImageNet(root='/data/imagenet', split='train', transform=preprocess)
+val_dataset = ImageNet(root='/data/imagenet', split='val', transform=preprocess)
+test_dataset = ImageNet(root='/data/imagenet', split='test', transform=preprocess)
 
 # Create data loaders
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
