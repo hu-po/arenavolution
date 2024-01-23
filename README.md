@@ -42,3 +42,4 @@ https://github.com/mistralai/mistral-src
 docker pull nvcr.io/nvidia/jax:23.10-py3
 docker run --gpus all -it --rm -v /tmp:/tmp nvcr.io/nvidia/jax:23.10-py3
 
+Consider https://paperswithcode.github.io/torchbench/

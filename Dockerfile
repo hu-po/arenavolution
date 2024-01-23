@@ -1,11 +1,5 @@
-# Use the specified base image
-FROM nvcr.io/nvidia/jax:23.10-py3
-
-# Set the working directory in the container
-WORKDIR /app
-
-# Copy the Python script into the container
-COPY minimamba.py .
-
-# Command to run the Python script
-CMD ["python", "./minimamba.py"]
+FROM pytorch/pytorch:2.0.0-cuda11.7-cudnn8-runtime
+RUN pip install torchbench
+WORKDIR /src
+COPY traineval.py src/traineval.py
+CMD ["python", "src/traineval.py"]
