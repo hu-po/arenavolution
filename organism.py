@@ -6,7 +6,6 @@ import os
 import yaml
 from typing import List
 import subprocess
-import time
 from dataclasses import dataclass
 
 from gpt import make_variant, make_organism_name
@@ -14,6 +13,9 @@ from utils import clean_docker
 
 ORGANISM_DIR: str = os.environ.get("ORG_DIR", "/home/oop/dev/data/")
 HPARAMS_FILENAME: str = "hparams.yaml"
+MODEL_FILENAME: str = "model.py"
+CKPT_DIR_NAME = "ckpt"
+LOGS_DIR_NAME = "logs"
 
 
 @dataclass
@@ -38,14 +40,17 @@ def load_organism_from_dir(name: str) -> Organism:
 def make_organism(hparams: dict) -> Organism:
     org_dir = os.path.join(ORGANISM_DIR, hparams["name"])
     os.makedirs(org_dir, exist_ok=True)
-    logs_dir = os.path.join(org_dir, "logs")
+    logs_dir = os.path.join(org_dir, LOGS_DIR_NAME)
     os.makedirs(logs_dir, exist_ok=True)
-    ckpt_dir = os.path.join(org_dir, "ckpt")
+    ckpt_dir = os.path.join(org_dir, CKPT_DIR_NAME)
     os.makedirs(ckpt_dir, exist_ok=True)
     hparams_filepath = os.path.join(org_dir, HPARAMS_FILENAME)
     organism = Organism(**hparams)
     with open(hparams_filepath, "w") as f:
         yaml.dump(hparams, f)
+    model_filepath = os.path.join(org_dir, MODEL_FILENAME)
+    with open(model_filepath, "w") as f:
+        f.write(hparams["code"])
     return organism
 
 
@@ -66,6 +71,10 @@ def reproduce(organisms: List[Organism], num_children: int = 5) -> List[Organism
 
 
 def spawn(organism: Organism):
+    org_dir = os.path.join(ORGANISM_DIR, organism.name)
+    model_filepath = os.path.join(org_dir, MODEL_FILENAME)
+    ckpt_filepath = os.path.join(org_dir, CKPT_DIR_NAME)
+    logs_filepath = os.path.join(org_dir, LOGS_DIR_NAME)
     clean_docker()
     docker_process = subprocess.Popen(
         [
@@ -74,8 +83,9 @@ def spawn(organism: Organism):
             "--rm",
             "-p 5555:5555",
             "--gpus 0",
-            "-v ${CKPT_PATH}:/ckpt",
-            "-v ${LOGS_PATH}:/logs",
+            f"-v {model_filepath}:/src/model.py"
+            f"-v {ckpt_filepath}:/ckpt",
+            f"-v ${logs_filepath}:/logs",
             "imagenet_pytorch",
         ]
     )
