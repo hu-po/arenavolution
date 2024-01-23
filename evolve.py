@@ -7,7 +7,12 @@
 # duplicate winning player with variation (use LLM to generate variations)
 import os
 import uuid
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--num_players", type=int, default=10)
+args = parser.parse_args()
 
 base_output_dir: str = "/home/oop/dev/data/"
 session_id = str(uuid.uuid4())[:6]
