@@ -20,4 +20,5 @@ RUN mkdir /ckpt
 RUN mkdir /src
 WORKDIR /src
 COPY traineval.py src/traineval.py
+COPY model.py src/model.py
 CMD ["python", "src/traineval.py"]

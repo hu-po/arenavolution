@@ -6,39 +6,26 @@ from torchvision import transforms
 from torchvision.datasets import ImageNet
 from torch.utils.data import DataLoader
 
+from model import Block
+
 num_epochs = 1
 batch_size = 2
 learning_rate = 0.001
 
-# Define a simple convolutional network
-class ConvNet(nn.Module):
-    def __init__(self, num_classes=1000):
-        super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-        self.fc = nn.Linear(64 * 56 * 56, num_classes)  # Adjust input size based on your image size
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.max_pool2d(x, kernel_size=2, stride=2)
-        x = F.relu(self.conv2(x))
-        x = F.max_pool2d(x, kernel_size=2, stride=2)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        return x
-
 # Define preprocessing for the images
-preprocess = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+preprocess = transforms.Compose(
+    [
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
 
 # Load the ImageNet dataset
-train_dataset = ImageNet(root='/data/imagenet', split='train', transform=preprocess)
-val_dataset = ImageNet(root='/data/imagenet', split='val', transform=preprocess)
-test_dataset = ImageNet(root='/data/imagenet', split='test', transform=preprocess)
+train_dataset = ImageNet(root="/data/imagenet", split="train", transform=preprocess)
+val_dataset = ImageNet(root="/data/imagenet", split="val", transform=preprocess)
+test_dataset = ImageNet(root="/data/imagenet", split="test", transform=preprocess)
 
 # Create data loaders
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -46,7 +33,7 @@ val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
-model = ConvNet()
+model = Block()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -61,7 +48,7 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
-    print(f'Epoch {epoch}, Loss: {running_loss / len(train_loader)}')
+    print(f"Epoch {epoch}, Loss: {running_loss / len(train_loader)}")
 
     # Validate the model
     model.eval()
@@ -76,7 +63,7 @@ for epoch in range(num_epochs):
             val_accuracy += (predicted == labels).sum().item()
     val_loss /= len(val_loader)
     val_accuracy /= len(val_dataset)
-    print(f'Validation Epoch {epoch}, Loss: {val_loss}, Accuracy: {val_accuracy}')
+    print(f"Validation Epoch {epoch}, Loss: {val_loss}, Accuracy: {val_accuracy}")
 
 # Test the model
 model.eval()
@@ -87,4 +74,4 @@ with torch.no_grad():
         _, predicted = torch.max(outputs, 1)
         test_accuracy += (predicted == labels).sum().item()
 test_accuracy /= len(test_dataset)
-print(f'Test Accuracy: {test_accuracy}')
+print(f"Test Accuracy: {test_accuracy}")

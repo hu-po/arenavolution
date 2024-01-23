@@ -30,7 +30,10 @@ def gpt_text(
 
 
 def make_variant(blocks: List[str]):
-    _ = "You are a machine learning expert coder. You will be given several blocks of code. Create a new block of code inspired by the given blocks."
+    _ = "You are a machine learning expert coder. "
+    _ += "You will be given several blocks of code. "
+    _ += "Create a new block of code inspired by the given blocks."
+    _ += "The block of code should use the same model name."
     for i, block in enumerate(blocks):
         _ += f"<block_{i}>{block}</block>"
     _ += "Reply only with valid code. Do not explain."
