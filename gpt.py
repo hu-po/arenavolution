@@ -2,6 +2,7 @@
 # prompt to create variant from single player
 # prompt to judge output of two players
 
+import uuid
 import os
 from openai import OpenAI
 from typing import List
@@ -27,7 +28,8 @@ def gpt_text(
     reply: str = response.choices[0].message.content
     return reply
 
-def make_variants(blocks: List[str]):
+
+def make_variant(blocks: List[str]):
     _ = "You are a machine learning expert coder. You will be given several blocks of code. Create a new block of code inspired by the given blocks."
     for i, block in enumerate(blocks):
         _ += f"<block_{i}>{block}</block>"
@@ -36,9 +38,24 @@ def make_variants(blocks: List[str]):
         messages=[
             {"role": "user", "content": _},
         ],
-        temperature=0.0,
+        temperature=1.7,
         max_tokens=256,
     )
+
+
+def make_organism_name() -> str:
+    base_name = gpt_text(
+        messages=[
+            {
+                "role": "user",
+                "content": "Pick a name for an organism. The name should be a single word, be creative!",
+            },
+        ],
+        temperature=3.0,
+        max_tokens=8,
+    )
+    return f"{base_name}.{str(uuid.uuid4())[:6]}"
+
 
 def judge(responses: List[str], criteria: str):
     pass
