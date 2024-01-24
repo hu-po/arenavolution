@@ -1,6 +1,6 @@
-export DATA_PATH="/home/oop/dev/data"
-export CKPT_PATH="/home/oop/dev/test/ckpt"
-export LOGS_PATH="/home/oop/dev/test/logs"
+export DATA_PATH="/home/oop/dev/data/centipede_chickadee"
+export CKPT_PATH="/home/oop/dev/data/test_model/ckpt"
+export LOGS_PATH="/home/oop/dev/data/test_model/logs"
 docker build \
      -t "evolver" \
      -f Dockerfile .

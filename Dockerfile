@@ -17,6 +17,7 @@ RUN pip install \
     tensorboardX
 RUN mkdir /data
 RUN mkdir /ckpt
+RUN mkdir /logs
 RUN mkdir /src
 WORKDIR /src
 COPY traineval.py src/traineval.py
