@@ -6,6 +6,7 @@ import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import ImageFolder
+from tqdm import tqdm
 
 from model import Block
 
@@ -40,13 +41,17 @@ class CustomDataset(Dataset):
 # Load the custom dataset
 train_dataset = CustomDataset(root_dir="/data/train", transform=preprocess)
 test_dataset = CustomDataset(root_dir="/data/test", transform=preprocess)
+print(f"Train Dataset Size: {len(train_dataset)}")
+print(f"Test Dataset Size: {len(test_dataset)}")
 
 # Create data loaders
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
-model = Block()  # Modify the model architecture as needed for the custom dataset
+model = Block()
+print(f"Model Parameter Count: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
@@ -54,13 +59,15 @@ optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 for epoch in range(args.num_epochs):
     model.train()
     running_loss = 0.0
-    for images, labels in train_loader:
+    progress_bar = tqdm(train_loader, desc=f"Epoch {epoch}")
+    for images, labels in progress_bar:
         optimizer.zero_grad()
         outputs = model(images)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
+        progress_bar.set_postfix({"Loss": running_loss / len(progress_bar)})
     print(f"Epoch {epoch}, Loss: {running_loss / len(train_loader)}")
 
 # Test the model
