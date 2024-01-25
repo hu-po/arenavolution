@@ -1,24 +1,17 @@
-import os
-import uuid
 import argparse
-import yaml
-from typing import List
-import subprocess
-import shutil
-import time
-from openai import OpenAI
 import base64
 import os
-import subprocess
-import uuid
-import time
-from io import BytesIO
-from typing import List
-import random
-
 import requests
+import random
+import subprocess
+import time
+import uuid
+import yaml
+
+from io import BytesIO
 from PIL import Image
-from utils import clean_docker
+from openai import OpenAI
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
@@ -30,7 +23,7 @@ parser.add_argument("--dataset_size", type=int, default=32)
 parser.add_argument("--dataset_split", type=float, default=0.8)
 args = parser.parse_args()
 
-print("🧙‍♂️ Starting Einvolution") 
+print("🧙‍♂️ Starting Einvolution")
 session_id = str(uuid.uuid4())[:6]
 base_dir = os.path.join(args.base_dir, f"einvol.{session_id}")
 os.makedirs(base_dir, exist_ok=True)
@@ -65,29 +58,43 @@ if args.data_dir is None:
     if "sdxl" in docker_ps_output.decode():
         print("Docker is already running.")
     else:
-        os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq) && docker container prune -f")
+        os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
         sdxl_docker_proc = subprocess.Popen(
-            ["docker", "run", "--rm", "-p", "5000:5000", "--gpus=all",
-            "-v", "/home/oop/dev/data/sdxl-model-cache:/src/weights-cache:rw", "sdxl"],
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-p",
+                "5000:5000",
+                "--gpus=all",
+                "-v",
+                "/home/oop/dev/data/sdxl-model-cache:/src/weights-cache:rw",
+                "sdxl",
+            ],
         )
         time.sleep(20)  # Let the docker container startup
     # use gpt to generate Nc categories and Ns Styles
     response = client.chat.completions.create(
-        messages=[{"role": "user", "content": """
+        messages=[
+            {
+                "role": "user",
+                "content": """
 You are a sampling machine that provides perfectly sampled words.
 You provide samples from the distribution of semantic visual concepts.
 Return a comma separated list of words with no spaces.
-        """}],
+        """,
+            }
+        ],
         model="gpt-4-1106-preview",
         temperature=1.7,
-        max_tokens=6*args.nc,
+        max_tokens=6 * args.nc,
     )
     reply: str = response.choices[0].message.content
     categories = reply.split(",")
     num_examples_per_category = args.dataset_size // args.nc
     for i, cat in enumerate(categories):
         print(f"Generating images for category {cat}")
-        for j in range(num_examples_per_category // 4): # SDXL does 4 images at a time
+        for j in range(num_examples_per_category // 4):  # SDXL does 4 images at a time
             negative_prompt = categories[(i + 1) % len(categories)]
             response = requests.post(
                 "http://localhost:5000/predictions",
@@ -124,7 +131,7 @@ Return a comma separated list of words with no spaces.
                 else:
                     img.save(os.path.join(test_dir, f"{img_id}.png"))
     sdxl_docker_proc.terminate()
-    os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq) && docker container prune -f")
+    os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
 
 # Seed with the halloffame
 players = os.listdir(player_dir)
@@ -147,41 +154,55 @@ The block of code should use the same model name.
             child_prompt += f"<block>{f.read()}</block>"
     child_prompt += "Reply only with valid code. Do not explain."
     response = client.chat.completions.create(
-        messages=[{"role": "user", "content": """
+        messages=[
+            {
+                "role": "user",
+                "content": """
 You are a sampling machine that provides perfectly sampled words.
 You provide samples from the distribution of semantic visual concepts.
 Return a comma separated list of words with no spaces.
-        """}],
+        """,
+            }
+        ],
         model="gpt-4-1106-preview",
         temperature=1.7,
-        max_tokens=6*args.nc,
+        max_tokens=6 * args.nc,
     )
     # TODO: test the child code before saving
     child_filepath = os.path.join(player_dir, f"child.{child_id}")
     with open(child_filepath, "w") as f:
         f.write(response.choices[0].message.content)
 
-# Run traineval for all players
+best_scores = {}
+results_filepath = os.path.join(base_dir, "results.yaml")
 for player in players:
     print(f"Running traineval for {player}")
     org_dir = os.path.join(player_dir, player["name"])
     model_filepath = os.path.join(org_dir, "model.py")
     ckpt_filepath = os.path.join(org_dir, "ckpt")
     logs_filepath = os.path.join(org_dir, "logs")
-    clean_docker()
-    docker_process = subprocess.Popen(
+    os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
+    player_docker_proc = subprocess.Popen(
         [
             "docker",
             "run",
             "--rm",
-            # "-p 5555:5555",
             "--gpus 0",
             f"-v {model_filepath}:/src/model.py",
             f"-v {ckpt_filepath}:/ckpt",
             f"-v {logs_filepath}:/logs",
-            f"-v {args.data_dir}:/data",
+            f"-v {data_dir}:/data",
             "evolver",
+            f"--child_name={player}",
         ]
     )
-    # Check to see if docker process dies due to model error
-    # lots of error checking, return tuple with failure boolean
+    player_docker_proc.wait()
+    if player_docker_proc.returncode != 0:
+        raise RuntimeError(f"Error occurred when training player {player}")
+    else:
+        print(f"Trained player {player}")
+    with open(results_filepath, 'r') as f:
+        player_results = yaml.safe_load(f)
+    best_scores[player["name"]] = player_results[player["name"]]["test_accuracy"]
+    print(f"Player {player} results: {player_results[player]}")
+    

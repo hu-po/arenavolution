@@ -1,4 +1,5 @@
 import argparse
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,10 +10,12 @@ from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
+import yaml
 from model import Block
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=42)
+parser.add_argument("--child_name", type=str, default="test")
 parser.add_argument("--num_epochs", type=int, default=3)
 parser.add_argument("--batch_size", type=int, default=2)
 parser.add_argument("--learning_rate", type=float, default=0.001)
@@ -100,5 +103,18 @@ hparams = {
     "learning_rate": args.learning_rate,
     "model_size": sum(p.numel() for p in model.parameters()),
 }
-writer.add_hparams(hparams, {"test_acc": test_accuracy})
+scores = {
+    "test_accuracy": test_accuracy,
+}
+writer.add_hparams(hparams, scores)
 writer.close()
+results_filepath = os.path.join(args.ckpt_dir, "results.yaml")
+if os.path.exists(results_filepath):
+    with open(results_filepath, 'r') as f:
+        results = yaml.safe_load(f) or {}
+else:
+    results = {}
+
+results[args.child_name] = hparams + scores
+with open(results_filepath, 'w') as f:
+    yaml.dump(results, f, default_flow_style=False)
