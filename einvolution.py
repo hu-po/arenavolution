@@ -16,12 +16,12 @@ from openai import OpenAI
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--num_players", type=int, default=16)
-parser.add_argument("--num_rounds", type=int, default=4)
-parser.add_argument("--cull_ratio", type=int, default=8)
+parser.add_argument("--num_players", type=int, default=8)
+parser.add_argument("--num_rounds", type=int, default=12)
+parser.add_argument("--cull_ratio", type=int, default=2)
 parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
-parser.add_argument("--data_dir", type=str, default=None)
-# parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/test_data")
+# parser.add_argument("--data_dir", type=str, default=None)
+parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/test_data")
 parser.add_argument("--num_categories", type=int, default=6)
 parser.add_argument("--dataset_size", type=int, default=3200)
 parser.add_argument("--dataset_split", type=float, default=0.8)
@@ -167,7 +167,8 @@ seed_players_dir = os.path.join(os.getcwd(), "players")
 players = os.listdir(seed_players_dir)
 for player in players:
     shutil.copy(os.path.join(seed_players_dir, player), player_dir)
-
+# Remove the player suffix from the player names
+players = [x.split(".")[0] for x in players]
 for round in range(args.num_rounds):
     print(f"Starting evolution rounds {round}")
     # reproduce to fill in missing players
@@ -176,43 +177,44 @@ for round in range(args.num_rounds):
         print(f"Creating run {run_id}")
         parents = random.sample(players, 2)
         print(f"Reproducing {parents[0]} and {parents[1]}")
-        run_prompt = """
-    You are a expert machine learning research engineer.
-    You excel at creating novel model architectures.
-    You use PyTorch and make use of the einops library.
-    You will be given several blocks of code.
-    Create a new block of code inspired by the given blocks.
-    The block of code should be called `Block` and should be a subclass of `nn.Module`.
-    Make sure the kwarg `num_classes` is present in the `__init__` method.
+        # zero-shot
+        system_prompt = """
+You are a expert machine learning research engineer.
+You excel at creating new and unique model architectures.
+You use PyTorch and make use of the einops library.
+You will be given several example blocks of code.
+Create a new block of code inspired by the given blocks.
+The block of code should be called `Block` and should be a subclass of `nn.Module`.
+Make sure the kwarg `num_classes` is present in the `__init__` method.
+Do not explain, return only the working code which will be written directly to a .py file.
     """
+        user_prompt = ""
         for parent in parents:
-            parent_filepath = os.path.join(player_dir, parent)
+            parent_filepath = os.path.join(player_dir, f"{parent}.py")
             with open(parent_filepath, "r") as f:
-                run_prompt += f"<block>{f.read()}</block>"
-        run_prompt += "Reply only with valid code. Do not explain."
+                user_prompt += f"\n{f.read()}"
         response = client.chat.completions.create(
-            messages=[{"role": "user", "content": run_prompt}],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             model="gpt-4-1106-preview",
             temperature=0.9,
             max_tokens=512,
         )
-        # TODO: test the run code before saving
-        run_filename = f"run.{run_id}.py"
-        run_filepath = os.path.join(player_dir, run_filename)
-        # HACK: removes first and last lines
         block = response.choices[0].message.content
-        block = block.split("\n")[1:-1]
+        # TODO: prompt again to refine/test the code block before saving
+        run_filename = f"{run_id}.py"
+        run_filepath = os.path.join(player_dir, run_filename)
         with open(run_filepath, "w") as f:
-            f.write("\n".join(block))
-        players.append(run_filename)
+            # HACK: removes first and last lines
+            f.write("\n".join(block.split("\n")[1:-1]))
+        players.append(run_id)
 
     best_scores = {}
-    results_filepath = os.path.join(ckpt_dir, "results.yaml")
+    results_filepath = os.path.join(ckpt_dir, f"results.r{round}.yaml")
     with open(results_filepath, "w") as f:
         yaml.dump({}, f)
     for player in players:
         print(f"Running traineval for {player}")
-        model_filepath = os.path.join(player_dir, player)
+        model_filepath = os.path.join(player_dir, f"{player}.py")
         os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
         player_docker_proc = subprocess.Popen(
             [
@@ -230,6 +232,8 @@ for round in range(args.num_rounds):
                 f"{data_dir}:/data",
                 "-e",
                 f"RUN_NAME={player}",
+                "-e",
+                f"ROUND={round}",
                 "evolver",
             ]
         )
@@ -252,6 +256,6 @@ for round in range(args.num_rounds):
     bot_players = [x[0] for x in sorted_players[-cull_index:]]
     print(f"Bottom players: {bot_players}")
     for player in bot_players:
-        os.remove(os.path.join(player_dir, player))
+        os.remove(os.path.join(player_dir, f"{player}.py"))
         print(f"Removed player {player}")
     players = [x for x in players if x not in bot_players]
