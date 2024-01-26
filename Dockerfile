@@ -1,5 +1,6 @@
 # https://hub.docker.com/r/pytorch/pytorch/tags
 FROM pytorch/pytorch:2.0.0-cuda11.7-cudnn8-runtime
+ENV RUN_NAME="test"
 # https://paperswithcode.github.io/torchbench/
 RUN pip install --upgrade pip
 RUN pip install \
@@ -22,4 +23,4 @@ RUN mkdir /logs
 RUN mkdir /src
 WORKDIR /src
 COPY traineval.py /src/traineval.py
-CMD ["python", "/src/traineval.py"]
+CMD python /src/traineval.py --run_name=$RUN_NAME

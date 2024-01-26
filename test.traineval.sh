@@ -1,7 +1,7 @@
-export DATA_PATH="/home/oop/dev/data/centipede_chickadee"
+export DATA_PATH="/home/oop/dev/data/test_data"
 export CKPT_PATH="/home/oop/dev/data/test_model/ckpt"
 export LOGS_PATH="/home/oop/dev/data/test_model/logs"
-export MODEL_PATH="/home/oop/dev/arenavolution/players/cnn.py"
+export MODEL_PATH="/home/oop/dev/arenavolution/players/mlp.py"
 docker build \
      -t "evolver" \
      -f Dockerfile .
@@ -14,4 +14,5 @@ docker run \
     -v ${DATA_PATH}:/data \
     -v ${CKPT_PATH}:/ckpt \
     -v ${LOGS_PATH}:/logs \
+    -e RUN_NAME=test2 \
     evolver

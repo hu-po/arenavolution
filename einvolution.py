@@ -16,13 +16,14 @@ from openai import OpenAI
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--num_players", type=int, default=6)
+parser.add_argument("--num_players", type=int, default=4)
 parser.add_argument("--num_rounds", type=int, default=2)
+parser.add_argument("--cull_ratio", type=int, default=4)
 parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
 parser.add_argument("--data_dir", type=str, default=None)
-# parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/centipede_chickadee")
-parser.add_argument("--num_categories", type=int, default=4)
-parser.add_argument("--dataset_size", type=int, default=32)
+# parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/test_data")
+parser.add_argument("--num_categories", type=int, default=2)
+parser.add_argument("--dataset_size", type=int, default=16)
 parser.add_argument("--dataset_split", type=float, default=0.8)
 args = parser.parse_args()
 
@@ -43,8 +44,14 @@ os.makedirs(ckpt_dir, exist_ok=True)
 print(f"ckpt directory at {ckpt_dir}")
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-if args.data_dir is None:
+if args.data_dir is not None:
+    data_dir = args.data_dir
+    print(f"Using existing data directory at {data_dir}")
+    train_dir = os.path.join(data_dir, "train")
+    print(f"train directory at {train_dir}")
+    test_dir = os.path.join(data_dir, "test")
+    print(f"test directory at {test_dir}")
+else:
     dataset_id = str(uuid.uuid4())[:6]
     print(f"No data directory specified, generating new dataset {dataset_id}")
     data_dir = os.path.join(base_dir, f"data.{dataset_id}")
@@ -72,12 +79,16 @@ if args.data_dir is None:
                 "-p",
                 "5000:5000",
                 "--gpus=all",
-                "-v /home/oop/dev/data/sdxl/sdxl-cache:/path/inside/container/sdxl-cache",
-                "-v /home/oop/dev/data/sdxl/safety-cache:/path/inside/container/safety-cache",
-                "sdxl",
+                "-v",
+                "/home/oop/dev/data/sdxl/sdxl-cache:/src/sdxl-cache",
+                "-v",
+                "/home/oop/dev/data/sdxl/safety-cache:/src/safety-cache",
+                "-v",
+                "/home/oop/dev/data/sdxl/refiner-cache:/src/refiner-cache",
+                "r8.im/stability-ai/sdxl@sha256:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
             ],
         )
-        time.sleep(20)  # Let the docker container startup
+        time.sleep(30)  # Let the docker container startup
     # use gpt to generate Nc categories and Ns Styles
     response = client.chat.completions.create(
         messages=[
@@ -129,6 +140,7 @@ Return a comma separated list of {args.num_categories} words with no spaces.
                 },
             )
             for k in range(4):
+                img_idx = j * 4 + k
                 img_id = str(uuid.uuid4())[:6]
                 img = Image.open(
                     BytesIO(
@@ -136,7 +148,7 @@ Return a comma separated list of {args.num_categories} words with no spaces.
                     )
                 )
                 img = img.resize((224, 224))
-                if j < args.dataset_split * num_examples_per_category:
+                if img_idx < args.dataset_split * num_examples_per_category:
                     img.save(os.path.join(train_dir, cat, f"{img_id}.png"))
                 else:
                     img.save(os.path.join(test_dir, cat, f"{img_id}.png"))
@@ -154,12 +166,12 @@ for round in range(args.num_rounds):
     print(f"Starting evolution rounds {round}")
     # reproduce to fill in missing players
     while len(players) < args.num_players:
-        child_id = str(uuid.uuid4())[:6]
-        print(f"Creating child {child_id}")
+        run_id = str(uuid.uuid4())[:6]
+        print(f"Creating run {run_id}")
         parents = random.sample(players, 2)
         print(f"Reproducing {parents[0]} and {parents[1]}")
-        child_prompt = """
-    You are a machine learning expert coder.
+        run_prompt = """
+    You are a expert machine learning research engineer.
     You excel at creating novel model architectures.
     You use PyTorch and make use of the einops library.
     You will be given several blocks of code.
@@ -170,23 +182,28 @@ for round in range(args.num_rounds):
         for parent in parents:
             parent_filepath = os.path.join(player_dir, parent)
             with open(parent_filepath, "r") as f:
-                child_prompt += f"<block>{f.read()}</block>"
-        child_prompt += "Reply only with valid code. Do not explain."
+                run_prompt += f"<block>{f.read()}</block>"
+        run_prompt += "Reply only with valid code. Do not explain."
         response = client.chat.completions.create(
-            messages=[{"role": "user", "content": child_prompt}],
+            messages=[{"role": "user", "content": run_prompt}],
             model="gpt-4-1106-preview",
             temperature=0.9,
             max_tokens=512,
         )
-        # TODO: test the child code before saving
-        child_filename = f"child.{child_id}.py"
-        child_filepath = os.path.join(player_dir, child_filename)
-        with open(child_filepath, "w") as f:
-            f.write(response.choices[0].message.content)
-        players.append(child_filename)
+        # TODO: test the run code before saving
+        run_filename = f"run.{run_id}.py"
+        run_filepath = os.path.join(player_dir, run_filename)
+        # HACK: removes first and last lines
+        block = response.choices[0].message.content
+        block = block.split("\n")[1:-1]
+        with open(run_filepath, "w") as f:
+            f.write("\n".join(block))
+        players.append(run_filename)
 
     best_scores = {}
-    results_filepath = os.path.join(base_dir, "results.yaml")
+    results_filepath = os.path.join(ckpt_dir, "results.yaml")
+    with open(results_filepath, "w") as f:
+        yaml.dump({}, f)
     for player in players:
         print(f"Running traineval for {player}")
         model_filepath = os.path.join(player_dir, player)
@@ -196,13 +213,18 @@ for round in range(args.num_rounds):
                 "docker",
                 "run",
                 "--rm",
-                "--gpus 0",
-                f"-v {model_filepath}:/src/model.py",
-                f"-v {ckpt_dir}:/ckpt",
-                f"-v {logs_dir}:/logs",
-                f"-v {data_dir}:/data",
+                "--gpus=all",
+                "-v",
+                f"{model_filepath}:/src/model.py",
+                "-v",
+                f"{ckpt_dir}:/ckpt",
+                "-v",
+                f"{logs_dir}:/logs",
+                "-v",
+                f"{data_dir}:/data",
+                "-e",
+                f"RUN_NAME={player}",
                 "evolver",
-                f"--child_name={player}",
             ]
         )
         player_docker_proc.wait()
@@ -216,13 +238,14 @@ for round in range(args.num_rounds):
             best_scores[player] = player_results[player]["test_accuracy"]
         print(f"Player {player} result {best_scores[player]}")
 
-    # Remove the lowest 50% of the players
     sorted_players = sorted(best_scores.items(), key=lambda x: x[1], reverse=True)
     print(f"Sorted players: {sorted_players}")
-    top_players = [x[0] for x in sorted_players[: len(sorted_players) // 2]]
+    cull_index = len(sorted_players) // args.cull_ratio
+    top_players = [x[0] for x in sorted_players[:cull_index]]
     print(f"Top players: {top_players}")
-    for player in players:
-        if player not in top_players:
-            os.remove(os.path.join(player_dir, player))
-            print(f"Removed player {player}")
-    players = top_players
+    bot_players = [x[0] for x in sorted_players[-cull_index:]]
+    print(f"Bottom players: {bot_players}")
+    for player in bot_players:
+        os.remove(os.path.join(player_dir, player))
+        print(f"Removed player {player}")
+    players = [x for x in players if x not in bot_players]

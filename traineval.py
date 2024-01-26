@@ -14,7 +14,7 @@ from model import Block
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=42)
-parser.add_argument("--child_name", type=str, default="test")
+parser.add_argument("--run_name", type=str, default="test1")
 parser.add_argument("--num_epochs", type=int, default=3)
 parser.add_argument("--batch_size", type=int, default=2)
 parser.add_argument("--learning_rate", type=float, default=0.001)
@@ -34,34 +34,23 @@ else:
 preprocess = transforms.Compose(
     [
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),
+        # TODO: Normalize to generated dataset?
+        # transforms.Normalize((0.1307,), (0.3081,)),
     ]
 )
 
-
-class CustomDataset(Dataset):
-    def __init__(self, root_dir, transform=None):
-        self.dataset = ImageFolder(root_dir, transform=transform)
-
-    def __len__(self):
-        return len(self.dataset)
-
-    def __getitem__(self, idx):
-        return self.dataset[idx]
-
-
-train_dataset = CustomDataset(root_dir=args.train_data_dir, transform=preprocess)
-test_dataset = CustomDataset(root_dir=args.test_data_dir, transform=preprocess)
+train_dataset = ImageFolder(root=args.train_data_dir, transform=preprocess)
+test_dataset = ImageFolder(root=args.test_data_dir, transform=preprocess)
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
-num_classes = len(train_dataset.dataset.classes)
+num_classes = len(train_dataset.classes)
 model = Block(num_classes=num_classes).to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
-writer = SummaryWriter(log_dir=args.logs_dir)
+writer = SummaryWriter(log_dir=args.logs_dir, filename_suffix=args.run_name)
 for epoch in range(args.num_epochs):
     model.train()
     running_loss = 0.0
@@ -75,11 +64,9 @@ for epoch in range(args.num_epochs):
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
-        progress_bar.set_postfix({"Loss": running_loss / len(progress_bar)})
-    print(f"Epoch {epoch}, Loss: {running_loss / len(train_loader)}")
-
-    writer.add_scalar("Loss/Train", running_loss / len(train_loader), epoch)
-
+        progress_bar.set_postfix({"loss": running_loss / len(progress_bar)})
+    print(f"epoch {epoch}, loss: {running_loss / len(train_loader)}")
+    writer.add_scalar("loss/train", running_loss / len(train_loader), epoch)
     model.eval()
     test_accuracy = 0.0
     with torch.no_grad():
@@ -90,12 +77,10 @@ for epoch in range(args.num_epochs):
             _, predicted = torch.max(outputs, 1)
             test_accuracy += (predicted == labels).sum().item()
     test_accuracy /= len(test_dataset)
-    print(f"Test Accuracy: {test_accuracy}")
+    print(f"acc/test: {test_accuracy}")
 
-    writer.add_scalar("Accuracy/Test", test_accuracy, epoch)
-
-    torch.save(model.state_dict(), f"{args.ckpt_dir}/epoch.{epoch}.pth")
-
+    writer.add_scalar("acc.test", test_accuracy, epoch)
+torch.save(model.state_dict(), f"{args.ckpt_dir}/{args.run_name}.e{epoch}.pth")
 hparams = {
     "num_epochs": args.num_epochs,
     "batch_size": args.batch_size,
@@ -113,7 +98,7 @@ if os.path.exists(results_filepath):
         results = yaml.safe_load(f) or {}
 else:
     results = {}
-
-results[args.child_name] = hparams.update(scores)
+hparams.update(scores)
+results[args.run_name] = hparams
 with open(results_filepath, "w") as f:
-    yaml.dump(results, f, default_flow_style=False)
+    yaml.dump(results, f)
