@@ -14,12 +14,12 @@ RUN pip install \
     torch \
     pyyaml \
     hyperopt \
-    tensorboardX
+    tensorboardX \
+    einops
 RUN mkdir /data
 RUN mkdir /ckpt
 RUN mkdir /logs
 RUN mkdir /src
 WORKDIR /src
-COPY traineval.py src/traineval.py
-COPY model.py src/model.py
-CMD ["python", "src/traineval.py"]
+COPY traineval.py /src/traineval.py
+CMD ["python", "/src/traineval.py"]

@@ -2,7 +2,6 @@ import argparse
 import os
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset
@@ -110,11 +109,11 @@ writer.add_hparams(hparams, scores)
 writer.close()
 results_filepath = os.path.join(args.ckpt_dir, "results.yaml")
 if os.path.exists(results_filepath):
-    with open(results_filepath, 'r') as f:
+    with open(results_filepath, "r") as f:
         results = yaml.safe_load(f) or {}
 else:
     results = {}
 
-results[args.child_name] = hparams + scores
-with open(results_filepath, 'w') as f:
+results[args.child_name] = hparams.update(scores)
+with open(results_filepath, "w") as f:
     yaml.dump(results, f, default_flow_style=False)

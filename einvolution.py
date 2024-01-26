@@ -24,6 +24,7 @@ parser.add_argument("--dataset_split", type=float, default=0.8)
 args = parser.parse_args()
 
 print("🧙‍♂️ Starting Einvolution")
+random.seed(args.seed)
 session_id = str(uuid.uuid4())[:6]
 base_dir = os.path.join(args.base_dir, f"einvol.{session_id}")
 os.makedirs(base_dir, exist_ok=True)
@@ -133,8 +134,9 @@ Return a comma separated list of words with no spaces.
     sdxl_docker_proc.terminate()
     os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
 
-# Seed with the halloffame
-players = os.listdir(player_dir)
+# Seed with the players in the local directory "players"
+seed_players_dir = os.path.join(os.getcwd(), "players")
+players = os.listdir(seed_players_dir)
 
 # reproduce to fill in missing players
 while len(players) < args.num_players:
