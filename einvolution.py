@@ -16,14 +16,14 @@ from openai import OpenAI
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--num_players", type=int, default=8)
+parser.add_argument("--num_players", type=int, default=16)
 parser.add_argument("--num_rounds", type=int, default=4)
-parser.add_argument("--cull_ratio", type=int, default=4)
+parser.add_argument("--cull_ratio", type=int, default=8)
 parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
 parser.add_argument("--data_dir", type=str, default=None)
 # parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/test_data")
 parser.add_argument("--num_categories", type=int, default=6)
-parser.add_argument("--dataset_size", type=int, default=640)
+parser.add_argument("--dataset_size", type=int, default=3200)
 parser.add_argument("--dataset_split", type=float, default=0.8)
 args = parser.parse_args()
 

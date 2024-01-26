@@ -50,7 +50,15 @@ model = Block(num_classes=num_classes).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
-writer = SummaryWriter(log_dir=args.logs_dir, filename_suffix=args.run_name)
+tblog_filepath = os.path.join(args.logs_dir, args.run_name)
+writer = SummaryWriter(tblog_filepath)
+print(f"Writing logs to {tblog_filepath}")
+hparams = {
+    "num_epochs": args.num_epochs,
+    "batch_size": args.batch_size,
+    "learning_rate": args.learning_rate,
+    "model_size": sum(p.numel() for p in model.parameters()),
+}
 for epoch in range(args.num_epochs):
     model.train()
     running_loss = 0.0
@@ -78,15 +86,8 @@ for epoch in range(args.num_epochs):
             test_accuracy += (predicted == labels).sum().item()
     test_accuracy /= len(test_dataset)
     print(f"acc/test: {test_accuracy}")
-
     writer.add_scalar("acc.test", test_accuracy, epoch)
 torch.save(model.state_dict(), f"{args.ckpt_dir}/{args.run_name}.e{epoch}.pth")
-hparams = {
-    "num_epochs": args.num_epochs,
-    "batch_size": args.batch_size,
-    "learning_rate": args.learning_rate,
-    "model_size": sum(p.numel() for p in model.parameters()),
-}
 scores = {
     "test_accuracy": test_accuracy,
 }
