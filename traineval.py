@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -15,8 +15,8 @@ from model import Block
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--run_name", type=str, default="test1")
-parser.add_argument("--num_epochs", type=int, default=3)
-parser.add_argument("--batch_size", type=int, default=2)
+parser.add_argument("--num_epochs", type=int, default=10)
+parser.add_argument("--batch_size", type=int, default=4)
 parser.add_argument("--learning_rate", type=float, default=0.001)
 parser.add_argument("--train_data_dir", type=str, default="/data/train")
 parser.add_argument("--test_data_dir", type=str, default="/data/test")

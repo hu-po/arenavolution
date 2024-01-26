@@ -16,14 +16,14 @@ from openai import OpenAI
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--num_players", type=int, default=4)
-parser.add_argument("--num_rounds", type=int, default=2)
+parser.add_argument("--num_players", type=int, default=8)
+parser.add_argument("--num_rounds", type=int, default=4)
 parser.add_argument("--cull_ratio", type=int, default=4)
 parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
 parser.add_argument("--data_dir", type=str, default=None)
 # parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/test_data")
-parser.add_argument("--num_categories", type=int, default=2)
-parser.add_argument("--dataset_size", type=int, default=16)
+parser.add_argument("--num_categories", type=int, default=6)
+parser.add_argument("--dataset_size", type=int, default=640)
 parser.add_argument("--dataset_split", type=float, default=0.8)
 args = parser.parse_args()
 
@@ -89,27 +89,33 @@ else:
             ],
         )
         time.sleep(30)  # Let the docker container startup
-    # use gpt to generate Nc categories and Ns Styles
-    response = client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": f"""
-You are a sampling machine that provides perfectly sampled words.
-You provide samples from the distribution of semantic visual concepts.
-These words will be used as categories for an image classification task.
-Return a comma separated list of {args.num_categories} words with no spaces.
-        """,
-            }
-        ],
-        model="gpt-4-1106-preview",
-        temperature=1.7,
-        max_tokens=6 * args.num_categories,
-    )
-    reply: str = response.choices[0].message.content
-    categories = reply.split(",")
+    # Use gpt to generate categories
+    unique_categories = set()
+    while len(unique_categories) < args.num_categories:
+        response = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"""
+        You are a sampling machine that provides perfectly sampled words.
+        You provide samples from the distribution of semantic visual concepts.
+        These words will be used as classes for an image classification task.
+        Return a comma separated list of {args.num_categories * 2} words with no spaces.
+        Reply only with class names, do not explain, keep the response perfectly parsable.
+                    """,
+                }
+            ],
+            model="gpt-4-1106-preview",
+            temperature=1.7,
+            max_tokens=6 * args.num_categories,
+        )
+        reply: str = response.choices[0].message.content
+        categories_from_reply = set(reply.split(","))
+        unique_categories.update(categories_from_reply)
+
+    # Limit the number of categories to the required amount
+    categories = list(unique_categories)[: args.num_categories]
     print(f"Categories: {categories}")
-    assert len(categories) == args.num_categories
     num_examples_per_category = args.dataset_size // args.num_categories
     for i, cat in enumerate(categories):
         print(f"Generating images for category {cat}")
