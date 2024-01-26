@@ -3,6 +3,7 @@ import base64
 import os
 import requests
 import random
+import shutil
 import subprocess
 import time
 import uuid
@@ -17,7 +18,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--num_players", type=int, default=10)
 parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
-parser.add_argument("--data_dir", type=str, default=None)
+parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/centipede_chickadee")
 parser.add_argument("--num_categories", type=int, default=2)
 parser.add_argument("--dataset_size", type=int, default=32)
 parser.add_argument("--dataset_split", type=float, default=0.8)
@@ -79,20 +80,21 @@ if args.data_dir is None:
         messages=[
             {
                 "role": "user",
-                "content": """
+                "content": f"""
 You are a sampling machine that provides perfectly sampled words.
 You provide samples from the distribution of semantic visual concepts.
-Return a comma separated list of words with no spaces.
+These words will be used as categories for an image classification task.
+Return a comma separated list of {args.num_categories} words with no spaces.
         """,
             }
         ],
         model="gpt-4-1106-preview",
         temperature=1.7,
-        max_tokens=6 * args.nc,
+        max_tokens=6 * args.num_categories,
     )
     reply: str = response.choices[0].message.content
     categories = reply.split(",")
-    num_examples_per_category = args.dataset_size // args.nc
+    num_examples_per_category = args.dataset_size // args.num_categories
     for i, cat in enumerate(categories):
         print(f"Generating images for category {cat}")
         for j in range(num_examples_per_category // 4):  # SDXL does 4 images at a time
@@ -137,6 +139,8 @@ Return a comma separated list of words with no spaces.
 # Seed with the players in the local directory "players"
 seed_players_dir = os.path.join(os.getcwd(), "players")
 players = os.listdir(seed_players_dir)
+for player in players:
+    shutil.copy(os.path.join(seed_players_dir, player), player_dir)
 
 # reproduce to fill in missing players
 while len(players) < args.num_players:
