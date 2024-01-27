@@ -63,6 +63,29 @@ else:
     test_dir = os.path.join(data_dir, "test")
     os.makedirs(test_dir, exist_ok=True)
     print(f"test directory at {test_dir}")
+    # Use gpt to generate categories
+    unique_categories = set()
+    while len(unique_categories) < args.num_categories:
+        response = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": """
+You are a sampling machine that provides perfectly sampled words.
+You provide samples from the distribution of semantic visual concepts.
+These words will be used as classes for an image classification task.
+Return a comma separated list of 10 words with no spaces.
+Reply only with class names, do not explain, keep the response perfectly parsable.
+                    """,
+                }
+            ],
+            model="gpt-4-1106-preview",
+            temperature=1.2,
+            max_tokens=64,
+        )
+        reply: str = response.choices[0].message.content
+        categories_from_reply = set(reply.split(","))
+        unique_categories.update(categories_from_reply)
     # Check if Docker is already running
     docker_ps_process = subprocess.Popen(["docker", "ps"], stdout=subprocess.PIPE)
     docker_ps_output, _ = docker_ps_process.communicate()
@@ -89,30 +112,6 @@ else:
             ],
         )
         time.sleep(30)  # Let the docker container startup
-    # Use gpt to generate categories
-    unique_categories = set()
-    while len(unique_categories) < args.num_categories:
-        response = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"""
-        You are a sampling machine that provides perfectly sampled words.
-        You provide samples from the distribution of semantic visual concepts.
-        These words will be used as classes for an image classification task.
-        Return a comma separated list of {args.num_categories * 2} words with no spaces.
-        Reply only with class names, do not explain, keep the response perfectly parsable.
-                    """,
-                }
-            ],
-            model="gpt-4-1106-preview",
-            temperature=1.7,
-            max_tokens=6 * args.num_categories,
-        )
-        reply: str = response.choices[0].message.content
-        categories_from_reply = set(reply.split(","))
-        unique_categories.update(categories_from_reply)
-
     # Limit the number of categories to the required amount
     categories = list(unique_categories)[: args.num_categories]
     print(f"Categories: {categories}")
@@ -194,7 +193,10 @@ Do not explain, return only the working code which will be written directly to a
             with open(parent_filepath, "r") as f:
                 user_prompt += f"\n{f.read()}"
         response = client.chat.completions.create(
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
             model="gpt-4-1106-preview",
             temperature=0.9,
             max_tokens=512,
