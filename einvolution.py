@@ -16,8 +16,8 @@ from openai import OpenAI
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--num_players", type=int, default=8)
-parser.add_argument("--num_rounds", type=int, default=12)
+parser.add_argument("--num_players", type=int, default=10)
+parser.add_argument("--num_rounds", type=int, default=32)
 parser.add_argument("--cull_ratio", type=int, default=2)
 parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
 # parser.add_argument("--data_dir", type=str, default=None)
