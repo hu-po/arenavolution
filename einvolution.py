@@ -16,10 +16,13 @@ from openai import OpenAI
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
+parser.add_argument("--framework", type=str, default="pytorch")
+# --- Evolution params
 parser.add_argument("--num_players", type=int, default=32)
 parser.add_argument("--num_rounds", type=int, default=64)
 parser.add_argument("--cull_ratio", type=int, default=4)
-parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
+# --- Data generation params
 parser.add_argument("--data_dir", type=str, default=None)
 # parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/test_data")
 parser.add_argument("--num_categories", type=int, default=100)
@@ -161,8 +164,21 @@ Reply only with class names, do not explain, keep the response perfectly parsabl
         sdxl_docker_proc.terminate()
         os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
 
+# Build and update the docker container for evolution
+build_docker_proc = subprocess.Popen(
+    [
+        "docker",
+        "build",
+        "-t",
+        f"evolver:{args.framework}",
+        "-f",
+        f"Dockerfile.{args.framework}",
+    ]
+)
+build_docker_proc.wait()
+assert build_docker_proc.returncode != 0
 # Seed with the players in the local directory "players"
-seed_players_dir = os.path.join(os.getcwd(), "players")
+seed_players_dir = os.path.join(os.getcwd(), "players", args.framework)
 players = os.listdir(seed_players_dir)
 for player in players:
     shutil.copy(os.path.join(seed_players_dir, player), player_dir)
@@ -215,7 +231,7 @@ Do not explain, return only the working code which will be written directly to a
     with open(results_filepath, "w") as f:
         yaml.dump({}, f)
     for player in players:
-        print(f"Running traineval for {player}")
+        print(f"Running {args.framework} traineval for {player}")
         model_filepath = os.path.join(player_dir, f"{player}.py")
         os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
         player_docker_proc = subprocess.Popen(
@@ -236,7 +252,7 @@ Do not explain, return only the working code which will be written directly to a
                 f"RUN_NAME={player}",
                 "-e",
                 f"ROUND={round}",
-                "evolver",
+                f"evolver:{args.framework}",
             ]
         )
         player_docker_proc.wait()

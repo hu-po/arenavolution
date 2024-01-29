@@ -3,8 +3,8 @@ export CKPT_PATH="/home/oop/dev/data/test_model/ckpt"
 export LOGS_PATH="/home/oop/dev/data/test_model/logs"
 export MODEL_PATH="/home/oop/dev/arenavolution/players/eeab3b.py"
 docker build \
-     -t "evolver" \
-     -f Dockerfile .
+     -t "evolver:pytorch" \
+     -f Dockerfile.pytorch .
 docker run \
     -it \
     --rm \
@@ -16,4 +16,4 @@ docker run \
     -v ${LOGS_PATH}:/logs \
     -e RUN_NAME=test2 \
     -e ROUND=0 \
-    evolver
+    evolver:pytorch

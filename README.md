@@ -1,8 +1,37 @@
-# Eigenops Evolution
+# Generative Model Evolution
 
-Can we evolve the best vision block?
+<!-- ![o](docs/cover.jpeg) -->
 
-### Local SDXL Dataset
+Can we evolve the best vision models? Seed with human examples, "reproduce" them to create novel variants using an LLM, and then benchmark them against a random synthetic classification dataset created using SDXL.
 
-To evaluate the vision blocks they will be given a fixed number of epochs to train on a synthetic dataset.
-The synthetic dataset is created by using SDXL with categories picked by GPT-4.
+### PyTorch
+
+```
+pytorch/
+  traineval.py
+  test.sh
+  models/
+    vit.py
+    cnn.py
+```
+traineval.py
+test.sh
+
+### TinyGrad?
+
+Could we evolve and beat a standing benchmark for a vision model?
+
+https://github.com/tinygrad/tinygrad/blob/67a78615e5425faad261435f2a78bbc404769a1f/test/Dockerfile
+https://github.com/tinygrad/tinygrad/tree/67a78615e5425faad261435f2a78bbc404769a1f/extra/models
+https://github.com/tinygrad/tinygrad/blob/67a78615e5425faad261435f2a78bbc404769a1f/examples/train_resnet.py
+
+## Citation
+
+```
+@misc{generative-model-evolution-2024,
+  title={Generative Model Evolution},
+  author={Hugo Ponte},
+  year={2024},
+  url={https://github.com/hu-po/gme}
+}
+```

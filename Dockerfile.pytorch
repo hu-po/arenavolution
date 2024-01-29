@@ -23,5 +23,5 @@ RUN mkdir /ckpt
 RUN mkdir /logs
 RUN mkdir /src
 WORKDIR /src
-COPY traineval.py /src/traineval.py
-CMD python /src/traineval.py --run_name=$RUN_NAME --round=$ROUND
+COPY traineval_pytorch.py /src/traineval_pytorch.py
+CMD python /src/traineval_pytorch.py --run_name=$RUN_NAME --round=$ROUND
