@@ -1,5 +1,6 @@
 import argparse
 import base64
+import glob
 import os
 import requests
 import random
@@ -9,6 +10,7 @@ import time
 import uuid
 import yaml
 
+import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import Image
 from openai import OpenAI
@@ -19,14 +21,14 @@ parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
 parser.add_argument("--framework", type=str, default="pytorch")
 # --- Evolution params
-parser.add_argument("--num_players", type=int, default=32)
+parser.add_argument("--num_players", type=int, default=12)
 parser.add_argument("--num_rounds", type=int, default=64)
 parser.add_argument("--cull_ratio", type=int, default=4)
 # --- Data generation params
-parser.add_argument("--data_dir", type=str, default=None)
-# parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/test_data")
-parser.add_argument("--num_categories", type=int, default=100)
-parser.add_argument("--dataset_size", type=int, default=100000)
+# parser.add_argument("--data_dir", type=str, default=None)
+parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_67")
+parser.add_argument("--num_categories", type=int, default=2)
+parser.add_argument("--dataset_size", type=int, default=100)
 parser.add_argument("--dataset_split", type=float, default=0.9)
 args = parser.parse_args()
 
@@ -87,8 +89,7 @@ Reply only with class names, do not explain, keep the response perfectly parsabl
             max_tokens=64,
         )
         reply: str = response.choices[0].message.content
-        categories_from_reply = set(reply.split(","))
-        unique_categories.update(categories_from_reply)
+        unique_categories.update(set([_.lower() for _ in reply.split(",")]))
     # Check if Docker is already running
     docker_ps_process = subprocess.Popen(["docker", "ps"], stdout=subprocess.PIPE)
     docker_ps_output, _ = docker_ps_process.communicate()
@@ -170,13 +171,14 @@ build_docker_proc = subprocess.Popen(
         "docker",
         "build",
         "-t",
-        f"evolver:{args.framework}",
+        f"evo_{args.framework}",
         "-f",
         f"Dockerfile.{args.framework}",
+        ".",
     ]
 )
 build_docker_proc.wait()
-assert build_docker_proc.returncode != 0
+assert build_docker_proc.returncode == 0, "Error building docker container"
 # Seed with the players in the local directory "players"
 seed_players_dir = os.path.join(os.getcwd(), "players", args.framework)
 players = os.listdir(seed_players_dir)
@@ -252,7 +254,7 @@ Do not explain, return only the working code which will be written directly to a
                 f"RUN_NAME={player}",
                 "-e",
                 f"ROUND={round}",
-                f"evolver:{args.framework}",
+                f"evo_{args.framework}",
             ]
         )
         player_docker_proc.wait()
@@ -277,3 +279,24 @@ Do not explain, return only the working code which will be written directly to a
         os.remove(os.path.join(player_dir, f"{player}.py"))
         print(f"Removed player {player}")
     players = [x for x in players if x not in bot_players]
+
+    # Plot round results 
+    plot_filepath = os.path.join(ckpt_dir, 'test_accuracy_plot.png')
+    yaml_files = glob.glob(f'{ckpt_dir}/results.r*.yaml')
+    rounds = []
+    test_acc = []
+    for file in yaml_files:
+        with open(file, 'r') as f:
+            data = yaml.safe_load(f)
+        round_number = int(file.split('.')[-2].split('r')[-1])
+        for key in data:
+            rounds.append(round_number)
+            test_acc.append(data[key]['test_accuracy'])
+
+    plt.scatter(rounds, test_acc)
+    plt.xlabel('round')
+    plt.ylabel('acc')
+    plt.title('evolution')
+    plt.xlim(0, 32)
+    plt.ylim(0, 1)
+    plt.savefig(plot_filepath)

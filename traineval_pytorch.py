@@ -16,11 +16,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--run_name", type=str, default="test1")
 parser.add_argument("--round", type=int, default=0)
-parser.add_argument("--num_epochs", type=int, default=8)
+parser.add_argument("--num_epochs", type=int, default=4)
 parser.add_argument("--early_stop", type=int, default=2)
 parser.add_argument("--max_model_size", type=int, default=1e8)
 parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--learning_rate", type=float, default=0.001)
+parser.add_argument("--learning_rate_decay", type=float, default=0.1)
 parser.add_argument("--train_data_dir", type=str, default="/data/train")
 parser.add_argument("--test_data_dir", type=str, default="/data/test")
 parser.add_argument("--ckpt_dir", type=str, default="/ckpt")
@@ -61,6 +62,7 @@ print(f"Model size: {model_size / 1e6}M")
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=args.learning_rate_decay)
 
 tblog_filepath = os.path.join(args.logs_dir, args.run_name)
 writer = SummaryWriter(tblog_filepath)
@@ -93,6 +95,7 @@ for epoch in range(args.num_epochs):
         best_loss = running_loss
         last_best_epoch = epoch
         print(f"new best loss: {best_loss}")
+    scheduler.step()
     model.eval()
     test_accuracy = 0.0
     with torch.no_grad():
