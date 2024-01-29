@@ -26,7 +26,8 @@ parser.add_argument("--num_rounds", type=int, default=64)
 parser.add_argument("--cull_ratio", type=int, default=4)
 # --- Data generation params
 # parser.add_argument("--data_dir", type=str, default=None)
-parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_67")
+parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_3")
+# parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_67")
 parser.add_argument("--num_categories", type=int, default=2)
 parser.add_argument("--dataset_size", type=int, default=100)
 parser.add_argument("--dataset_split", type=float, default=0.9)
@@ -165,6 +166,10 @@ Reply only with class names, do not explain, keep the response perfectly parsabl
         sdxl_docker_proc.terminate()
         os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
 
+# Spin up a Tensorboard instance to monitor training
+os.system("pkill -f 'tensorboard'")
+tb_proc = subprocess.Popen(["tensorboard", f"--logdir={logs_dir}"])
+tb_chrome_proc = subprocess.Popen(["/usr/bin/google-chrome", "http://localhost:6006/"])
 # Build and update the docker container for evolution
 build_docker_proc = subprocess.Popen(
     [
