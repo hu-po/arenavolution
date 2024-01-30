@@ -25,8 +25,8 @@ parser.add_argument("--num_rounds", type=int, default=32)
 parser.add_argument("--cull_ratio", type=int, default=4)
 # --- Data generation params
 # parser.add_argument("--data_dir", type=str, default=None)
-# parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_3")
-parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_67")
+parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_3")
+# parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_67")
 parser.add_argument("--num_categories", type=int, default=2)
 parser.add_argument("--dataset_size", type=int, default=100)
 parser.add_argument("--dataset_split", type=float, default=0.9)
@@ -50,12 +50,32 @@ print(f"ckpt directory at {ckpt_dir}")
 
 if args.llm == "gpt":
     from openai import OpenAI
+
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    def llm(messages, temp: float, max_tokens: int):
+        response = client.chat.completions.create(
+            messages=messages,
+            model="gpt-4-1106-preview",
+            temperature=temp,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content
+
 elif args.llm == "codellama":
     from transformers import AutoTokenizer, AutoModelForCausalLM
 
     tokenizer = AutoTokenizer.from_pretrained("codellama/CodeLlama-7b-Instruct-hf")
     model = AutoModelForCausalLM.from_pretrained("codellama/CodeLlama-7b-Instruct-hf")
+
+    def llm(messages, temp: float, max_tokens: int):
+        inputs = tokenizer.apply_chat_template(messages, return_tensors="pt").to("cuda")
+        output = model.generate(
+            input_ids=inputs, max_new_tokens=max_tokens, temperature=temp
+        )
+        output = output[0].to("cpu")
+        return tokenizer.decode(output)
+
 
 if args.data_dir is not None:
     data_dir = args.data_dir
@@ -79,8 +99,8 @@ else:
     # Use gpt to generate categories
     unique_categories = set()
     while len(unique_categories) < args.num_categories:
-        response = client.chat.completions.create(
-            messages=[
+        reply = llm(
+            [
                 {
                     "role": "user",
                     "content": """
@@ -92,11 +112,9 @@ Reply only with class names, do not explain, keep the response perfectly parsabl
                     """,
                 }
             ],
-            model="gpt-4-1106-preview",
-            temperature=1.2,
-            max_tokens=64,
+            1.2,
+            64,
         )
-        reply: str = response.choices[0].message.content
         unique_categories.update(set([_.lower() for _ in reply.split(",")]))
     # Check if Docker is already running
     docker_ps_process = subprocess.Popen(["docker", "ps"], stdout=subprocess.PIPE)
@@ -198,6 +216,9 @@ for player in players:
     shutil.copy(os.path.join(seed_players_dir, player), player_dir)
 # Remove the player suffix from the player names
 players = [x.split(".")[0] for x in players]
+# shuffle the players and clip to num_players
+random.shuffle(players)
+players = players[: args.num_players]
 for round in range(args.num_rounds):
     print(f"Starting evolution rounds {round}")
     # reproduce to fill in missing players
@@ -207,10 +228,10 @@ for round in range(args.num_rounds):
         parents = random.sample(players, 2)
         print(f"Reproducing {parents[0]} and {parents[1]}")
         # zero-shot
-        system_prompt = """
+        system_prompt = f"""
 You are a expert machine learning research engineer.
 You excel at creating new and unique model architectures.
-You use PyTorch and make use of the einops library.
+You use {args.framework} and make use of the einops library.
 You will be given several example blocks of code.
 Create a new block of code inspired by the given blocks.
 The block of code should be called `Block` and should be a subclass of `nn.Module`.
@@ -222,22 +243,20 @@ Do not explain, return only the working code which will be written directly to a
             parent_filepath = os.path.join(player_dir, f"{parent}.py")
             with open(parent_filepath, "r") as f:
                 user_prompt += f"\n{f.read()}"
-        response = client.chat.completions.create(
-            messages=[
+        reply = llm(
+            [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            model="gpt-4-1106-preview",
-            temperature=0.9,
-            max_tokens=512,
+            0.9,
+            512,
         )
-        block = response.choices[0].message.content
         # TODO: prompt again to refine/test the code block before saving
         run_filename = f"{run_id}.py"
         run_filepath = os.path.join(player_dir, run_filename)
         with open(run_filepath, "w") as f:
             # HACK: removes first and last lines
-            f.write("\n".join(block.split("\n")[1:-1]))
+            f.write("\n".join(reply.split("\n")[1:-1]))
         players.append(run_id)
 
     best_scores = {}
@@ -292,23 +311,23 @@ Do not explain, return only the working code which will be written directly to a
         print(f"Removed player {player}")
     players = [x for x in players if x not in bot_players]
 
-    # Plot round results 
-    plot_filepath = os.path.join(ckpt_dir, 'test_accuracy_plot.png')
-    yaml_files = glob.glob(f'{ckpt_dir}/results.r*.yaml')
+    # Plot round results
+    plot_filepath = os.path.join(ckpt_dir, "test_accuracy_plot.png")
+    yaml_files = glob.glob(f"{ckpt_dir}/results.r*.yaml")
     rounds = []
     test_acc = []
     for file in yaml_files:
-        with open(file, 'r') as f:
+        with open(file, "r") as f:
             data = yaml.safe_load(f)
-        round_number = int(file.split('.')[-2].split('r')[-1])
+        round_number = int(file.split(".")[-2].split("r")[-1])
         for key in data:
             rounds.append(round_number)
-            test_acc.append(data[key]['test_accuracy'])
+            test_acc.append(data[key]["test_accuracy"])
 
     plt.scatter(rounds, test_acc)
-    plt.xlabel('round')
-    plt.ylabel('acc')
-    plt.title('evolution')
+    plt.xlabel("round")
+    plt.ylabel("acc")
+    plt.title("evolution")
     plt.xlim(0, 32)
     plt.ylim(0, 1)
     plt.savefig(plot_filepath)
