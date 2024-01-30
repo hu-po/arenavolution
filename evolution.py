@@ -13,13 +13,12 @@ import yaml
 import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import Image
-from openai import OpenAI
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--base_dir", type=str, default="/home/oop/dev/data/")
 parser.add_argument("--framework", type=str, default="pytorch")
+parser.add_argument("--llm", type=str, default="gpt")
 # --- Evolution params
 parser.add_argument("--num_players", type=int, default=24)
 parser.add_argument("--num_rounds", type=int, default=32)
@@ -49,7 +48,15 @@ ckpt_dir = os.path.join(base_dir, "ckpt")
 os.makedirs(ckpt_dir, exist_ok=True)
 print(f"ckpt directory at {ckpt_dir}")
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+if args.llm == "gpt":
+    from openai import OpenAI
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+elif args.llm == "codellama":
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+
+    tokenizer = AutoTokenizer.from_pretrained("codellama/CodeLlama-7b-Instruct-hf")
+    model = AutoModelForCausalLM.from_pretrained("codellama/CodeLlama-7b-Instruct-hf")
+
 if args.data_dir is not None:
     data_dir = args.data_dir
     print(f"Using existing data directory at {data_dir}")
