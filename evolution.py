@@ -25,7 +25,9 @@ parser.add_argument("--num_rounds", type=int, default=32)
 parser.add_argument("--cull_ratio", type=int, default=4)
 # --- Data generation params
 # parser.add_argument("--data_dir", type=str, default=None)
-parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_3")
+parser.add_argument(
+    "--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_3"
+)
 # parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_67")
 parser.add_argument("--num_categories", type=int, default=2)
 parser.add_argument("--dataset_size", type=int, default=100)
@@ -49,13 +51,17 @@ os.makedirs(ckpt_dir, exist_ok=True)
 print(f"ckpt directory at {ckpt_dir}")
 
 if args.llm == "gpt":
+    # https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo
     from openai import OpenAI
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    def llm(messages, temp: float, max_tokens: int):
+    def llm(system: str, prompt: str, temp: float, max_tokens: int):
         response = client.chat.completions.create(
-            messages=messages,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
             model="gpt-4-1106-preview",
             temperature=temp,
             max_tokens=max_tokens,
@@ -63,18 +69,25 @@ if args.llm == "gpt":
         return response.choices[0].message.content
 
 elif args.llm == "codellama":
-    from transformers import AutoTokenizer, AutoModelForCausalLM
+    # https://replicate.com/meta/codellama-70b-instruct
+    import replicate
 
-    tokenizer = AutoTokenizer.from_pretrained("codellama/CodeLlama-7b-Instruct-hf")
-    model = AutoModelForCausalLM.from_pretrained("codellama/CodeLlama-7b-Instruct-hf")
-
-    def llm(messages, temp: float, max_tokens: int):
-        inputs = tokenizer.apply_chat_template(messages, return_tensors="pt").to("cuda")
-        output = model.generate(
-            input_ids=inputs, max_new_tokens=max_tokens, temperature=temp
+    def llm(system: str, prompt: str, temp: float, max_tokens: int):
+        output = replicate.run(
+            "meta/codellama-70b-instruct:a279116fe47a0f65701a8817188601e2fe8f4b9e04a518789655ea7b995851bf",
+            input={
+                "top_k": 10,
+                "top_p": 0.95,
+                "prompt": prompt,
+                "max_tokens": max_tokens,
+                "temperature": temp,
+                "system_prompt": system,
+                "repeat_penalty": 1.1,
+                "presence_penalty": 0,
+                "frequency_penalty": 0,
+            },
         )
-        output = output[0].to("cpu")
-        return tokenizer.decode(output)
+        return output
 
 
 if args.data_dir is not None:
@@ -96,22 +109,19 @@ else:
     test_dir = os.path.join(data_dir, "test")
     os.makedirs(test_dir, exist_ok=True)
     print(f"test directory at {test_dir}")
-    # Use gpt to generate categories
+    # Use llm to generate categories
     unique_categories = set()
     while len(unique_categories) < args.num_categories:
         reply = llm(
-            [
-                {
-                    "role": "user",
-                    "content": """
-You are a sampling machine that provides perfectly sampled words.
-You provide samples from the distribution of semantic visual concepts.
-These words will be used as classes for an image classification task.
+            """
+You are a sampling machine that provides perfectly sampled words. 
+You provide samples from the distribution of semantic visual concepts. 
+Reply only with lowercase single words.
+            """,
+            """
 Return a comma separated list of 10 words with no spaces.
-Reply only with class names, do not explain, keep the response perfectly parsable.
-                    """,
-                }
-            ],
+These words will be used as classes for an image classification task. 
+            """,
             1.2,
             64,
         )
@@ -236,22 +246,24 @@ You will be given several example blocks of code.
 Create a new block of code inspired by the given blocks.
 The block of code should be called `Block` and should be a subclass of `nn.Module`.
 Make sure the kwarg `num_classes` is present in the `__init__` method.
-Do not explain, return only the working code which will be written directly to a .py file.
-    """
+Do not explain, return only the working code which will be written directly to a .py file."""
         user_prompt = ""
         for parent in parents:
             parent_filepath = os.path.join(player_dir, f"{parent}.py")
             with open(parent_filepath, "r") as f:
                 user_prompt += f"\n{f.read()}"
+        reply = llm(system_prompt, user_prompt, 0.9, 512)
         reply = llm(
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            0.9,
+            """
+You are an expert debugging machine.
+You fix dim mismatch errors in model architectures.
+Return the user provided code with any mistakes removed.
+Remove any comments.
+Do not explain return only the code.""",
+            reply,
+            0.7,
             512,
         )
-        # TODO: prompt again to refine/test the code block before saving
         run_filename = f"{run_id}.py"
         run_filepath = os.path.join(player_dir, run_filename)
         with open(run_filepath, "w") as f:
