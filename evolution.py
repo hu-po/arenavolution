@@ -231,11 +231,12 @@ for round in range(args.num_rounds):
     print(f"Starting evolution rounds {round}")
     # reproduce to fill in missing players
     while len(players) < args.num_players:
-        # TODO: child should be named from parents
         run_id = str(uuid.uuid4())[:6]
         print(f"Creating run {run_id}")
         parents = random.sample(players, 2)
         print(f"Reproducing {parents[0]} and {parents[1]}")
+        # Add parent names to run_id for easy identification
+        run_id = f"{parents[0][:2]}_{parents[1][:2]}_{run_id}"
         # zero-shot
         system_prompt = f"""
 You are a expert machine learning research engineer.
@@ -274,8 +275,17 @@ Do not explain return only the code.""",
     results_filepath = os.path.join(ckpt_dir, f"results.r{round}.yaml")
     with open(results_filepath, "w") as f:
         yaml.dump({}, f)
+    previous_results_filepath = os.path.join(ckpt_dir, f"results.r{round-1}.yaml")
+    if os.path.exists(previous_results_filepath):
+        with open(previous_results_filepath, "r") as f:
+            previous_results = yaml.safe_load(f)
+    else:
+        previous_results = {}
     for player in players:
-        # TODO: skip already run players
+        # skip already run players
+        if player in previous_results:
+            best_scores[player] = previous_results[player]["test_accuracy"]
+            continue
         print(f"Running {args.framework} traineval for {player}")
         model_filepath = os.path.join(player_dir, f"{player}.py")
         os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
