@@ -24,8 +24,8 @@ parser.add_argument("--num_players", type=int, default=24)
 parser.add_argument("--num_rounds", type=int, default=32)
 parser.add_argument("--cull_ratio", type=int, default=4)
 # --- Data generation params
-parser.add_argument("--data_dir", type=str, default=None)
-# parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_3")
+# parser.add_argument("--data_dir", type=str, default=None)
+parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_8")
 # parser.add_argument("--data_dir", type=str, default="/home/oop/dev/data/sdxl_imagenet_67")
 parser.add_argument("--num_categories", type=int, default=8)
 parser.add_argument("--dataset_size", type=int, default=800)
@@ -231,6 +231,7 @@ for round in range(args.num_rounds):
     print(f"Starting evolution rounds {round}")
     # reproduce to fill in missing players
     while len(players) < args.num_players:
+        # TODO: child should be named from parents
         run_id = str(uuid.uuid4())[:6]
         print(f"Creating run {run_id}")
         parents = random.sample(players, 2)
@@ -274,6 +275,7 @@ Do not explain return only the code.""",
     with open(results_filepath, "w") as f:
         yaml.dump({}, f)
     for player in players:
+        # TODO: skip already run players
         print(f"Running {args.framework} traineval for {player}")
         model_filepath = os.path.join(player_dir, f"{player}.py")
         os.system("docker kill $(docker ps -aq) && docker rm $(docker ps -aq)")
