@@ -16,15 +16,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--run_name", type=str, default="test1")
 parser.add_argument("--round", type=int, default=0)
-parser.add_argument("--num_epochs", type=int, default=12)
-parser.add_argument("--early_stop", type=int, default=4)
+parser.add_argument("--num_epochs", type=int, default=24)
+parser.add_argument("--early_stop", type=int, default=6)
 parser.add_argument("--max_model_size", type=int, default=1e8)
 parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--learning_rate", type=float, default=0.01)
-parser.add_argument("--learning_rate_gamma", type=float, default=0.8)
+parser.add_argument("--learning_rate_gamma", type=float, default=0.9)
 parser.add_argument("--train_data_dir", type=str, default="/data/train")
 parser.add_argument("--test_data_dir", type=str, default="/data/test")
 parser.add_argument("--ckpt_dir", type=str, default="/ckpt")
+parser.add_argument("--save_ckpt", type=bool, default=False)
 parser.add_argument("--logs_dir", type=str, default="/logs")
 args = parser.parse_args()
 
@@ -113,7 +114,9 @@ for epoch in range(args.num_epochs):
     if epoch - last_best_epoch > args.early_stop:
         print(f"early stopping at epoch {epoch}")
         break
-torch.save(model.state_dict(), f"{args.ckpt_dir}/{args.run_name}.e{epoch}.pth")
+if args.save_ckpt:
+    print(f"Saving model to {args.ckpt_dir}/{args.run_name}.e{epoch}.pth")
+    torch.save(model.state_dict(), f"{args.ckpt_dir}/{args.run_name}.e{epoch}.pth")
 scores = {
     "test_accuracy": test_accuracy,
 }
